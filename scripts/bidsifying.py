@@ -54,25 +54,22 @@ for task in task_conditions:
 # %%
 # %%
 
-data_mne.info.ch_names
-# %%
-# %%
 
-# %%
-import numpy as np
-import mne
-raw = data_mne
-sfreq = raw.info['sfreq']  # Sampling frequency, e.g., 600 Hz
-epoch_duration_sec = 2  # Duration of each epoch in seconds
-epoch_duration_samples = int(epoch_duration_sec * sfreq)  # Duration in samples
+# # %%
+# import numpy as np
+# import mne
+# raw = data_mne
+# sfreq = raw.info['sfreq']  # Sampling frequency, e.g., 600 Hz
+# epoch_duration_sec = 2  # Duration of each epoch in seconds
+# epoch_duration_samples = int(epoch_duration_sec * sfreq)  # Duration in samples
 
-n_samples = raw.n_times
+# n_samples = raw.n_times
 
-event_times_samples = np.arange(0, n_samples, epoch_duration_samples)
+# event_times_samples = np.arange(0, n_samples, epoch_duration_samples)
 
-event_times_sec = event_times_samples / sfreq
+# event_times_sec = event_times_samples / sfreq
 
-annotations = mne.Annotations(onset=event_times_sec, duration=epoch_duration_sec, description=['Music_start'] * len(event_times_sec))
+# annotations = mne.Annotations(onset=event_times_sec, duration=epoch_duration_sec, description=['Music_start'] * len(event_times_sec))
 
-raw.set_annotations(annotations)
-#%%
+# raw.set_annotations(annotations)
+# #%%
