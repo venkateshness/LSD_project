@@ -6,3 +6,5 @@ test/
 _cache/
 __pycache__/
 LSD_environment/
+Preprocessing_Reports/
+Video/
