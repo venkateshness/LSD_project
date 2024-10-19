@@ -3,9 +3,9 @@ import mne
 import numpy as np
 
 sub  = 'sub-08'
-data_mne_epochs = mne.read_epochs(f"/users/local/Venkatesh/LSD_project/src_data/derivatives/Music/LSD/{sub}/meg/{sub}_cleaned_epochs_meg.fif")
+# data_mne_epochs = mne.read_epochs(f"/users/local/Venkatesh/LSD_project/src_data/derivatives/Music/LSD/{sub}/meg/{sub}_cleaned_epochs_meg.fif")
 
-bad_epochs_ar = np.load(f"/users/local/Venkatesh/LSD_project/src_data/derivatives/Music/LSD/{sub}/meg/{sub}_reject_log_AR_pre_meg.fif.npz")['bad_epochs']
+# bad_epochs_ar = np.load(f"/users/local/Venkatesh/LSD_project/src_data/derivatives/Music/LSD/{sub}/meg/{sub}_reject_log_AR_pre_meg.fif.npz")['bad_epochs']
 raw = mne.io.read_raw_fif(f"/users/local/Venkatesh/LSD_project/src_data/fif_data_BIDS/Music/LSD/{sub}/ses-01/meg/{sub}_ses-01_task-Music_meg.fif", preload=True)
 events = mne.events_from_annotations(raw)[0]
 epochs = mne.Epochs(raw, events, tmin=0, tmax=2, baseline=None, preload=True, picks='meg')
@@ -63,4 +63,26 @@ for subject in subjects:
 # Save the report
 output_report_file = f"{HOMEDIR}/Visual_inpection_preprocessed_data_{condition}.html"
 report.save(output_report_file, overwrite=True, open_browser=False)
+# %%
+sub = 'sub-01'
+raw = mne.io.read_raw_fif(f"/users/local/Venkatesh/LSD_project/src_data/fif_data_BIDS/Music/LSD/{sub}/ses-01/meg/{sub}_ses-01_task-Music_meg.fif", preload=True)
+
+epochs_fixed_length = mne.make_fixed_length_epochs(raw, duration=2, preload=True)
+epochs_fixed_length
+# %%
+
+
+raw.pick('meg').get_data().reshape(210, 300, 2400) == epochs_fixed_length.pick('meg').get_data()
+
+# %%
+from mne import make_fixed_length_events
+events = make_fixed_length_events(raw, duration=2, overlap=0)
+events
+
+# %%
+epochs_fixed_length.pick('meg').info['ch_names']
+# %%
+raw.pick('meg').get_data()
+# %%
+epochs_fixed_length.pick('meg').get_data()[-1]==raw.pick('meg').get_data()[:, 2400*209:]
 # %%

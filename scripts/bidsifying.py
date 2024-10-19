@@ -33,21 +33,24 @@ for task in task_condition:
             annotations = mne.Annotations(onset=[0], duration=[2], description=[f'{task}_epochs'])
             
             annotations.description = [f'{task}_epochs'] * len(annotations.onset)
-            annotations.duration = [2] 
+            # annotations.duration = [2] 
             data_mne.set_annotations(annotations)
             
-            sfreq = data_mne.info['sfreq']  # Sampling frequency, e.g., 600 Hz
-            epoch_duration_sec = 2  # Duration of each epoch in seconds
-            epoch_duration_samples = int(epoch_duration_sec * sfreq)  # Duration in samples
+            # sfreq = data_mne.info['sfreq']  # Sampling frequency, e.g., 600 Hz
+            # epoch_duration_sec = 2  # Duration of each epoch in seconds
+            # epoch_duration_samples = int(epoch_duration_sec * sfreq)  # Duration in samples
 
-            n_samples = data_mne.n_times
-            events, event_id = mne.events_from_annotations(data_mne)
-            beginning = events[:, 0][0]
+            # n_samples = data_mne.n_times
+            # events, event_id = mne.events_from_annotations(data_mne)
+            # beginning = events[:, 0][0]
 
-            event_times_samples = np.arange(beginning, n_samples, epoch_duration_samples)
-            event_times_sec = event_times_samples / sfreq
-            annotations = mne.Annotations(onset=event_times_sec, duration=epoch_duration_sec, description=[f'{task}_epochs'] * len(event_times_sec))
-            data_mne.set_annotations(annotations)
+            # event_times_samples = np.arange(beginning, n_samples, epoch_duration_samples)
+            # event_times_sec = event_times_samples / sfreq
+            # annotations = mne.Annotations(onset=event_times_sec, duration=epoch_duration_sec, description=[f'{task}_epochs'] * len(event_times_sec))
+            # data_mne.set_annotations(annotations)
+            
+            events = mne.make_fixed_length_events(data_mne, duration=2, overlap=0)
+            event_id = {'Music_epochs': 1}
             
             
             # events, event_id = mne.events_from_annotations(data_mne)

@@ -26,12 +26,12 @@ def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVE
     
     # Step 3: ICA works best on the data without bad epochs. https://autoreject.github.io/stable/auto_examples/plot_autoreject_workflow.html
     # Thus, first apply AutoReject to remove bad epochs
-    events = mne.events_from_annotations(raw)[0]
-    epochs = mne.Epochs(raw, events, tmin=0, tmax=2, baseline=None, preload=True, picks='meg')
+    events = mne.make_fixed_length_events(raw, duration=2, overlap=0)
+    epochs = mne.Epochs(raw, events, event_id=1, tmin=0, tmax=1.999, baseline=None, preload=True, picks='meg')
     ar = AutoReject(picks="mag",n_jobs=-1, random_state=99, n_interpolate=[1, 4, 8, 16, 32])
     ar.fit(epochs)
     
-    _, reject_log = ar.transform(epochs, return_log=True)
+    reject_log = ar.get_reject_log(epochs, picks='mag')
     report.add_figure(reject_log.plot('horizontal'), title=f'Subject {subject_id} - Autoreject Log')
     report.add_epochs(epochs, title=f'Subject {subject_id} - Autoreject Applied for Epochs')
     
@@ -41,7 +41,7 @@ def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVE
 
     # Step 3:ICA 
     # Second, apply ICA to remove artifacts
-    ica = ICA(n_components=20, random_state=97, method="picard")
+    ica = ICA(n_components=0.90, random_state=97, method="picard")
     ica.fit(epochs[~reject_log.bad_epochs], picks="mag")
     
     # step 3.1 ECG / EOG artifact removal
