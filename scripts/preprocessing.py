@@ -41,7 +41,7 @@ def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVE
 
     # Step 3:ICA 
     # Second, apply ICA to remove artifacts
-    ica = ICA(n_components=0.90, random_state=97, method="picard")
+    ica = ICA(n_components=20, random_state=97, method="picard")
     ica.fit(epochs[~reject_log.bad_epochs], picks="mag")
     
     # step 3.1 ECG / EOG artifact removal
