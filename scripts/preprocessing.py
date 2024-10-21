@@ -6,24 +6,27 @@ from mne.preprocessing import ICA
 from mne.report import Report
 from joblib import Parallel, delayed
 
-# Define the function to preprocess EEG data
 def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVES_DIR, power_line_freq=50):
-    # Construct the path to the subject's data in BIDS format
     input_file = os.path.join(input_dir, f'sub-{subject_id}', f'ses-01', 'meg', f'sub-{subject_id}_ses-01_task-{task}_meg.fif')
     
-    report = Report(title=f'MEG Report for Subject {subject_id}')
+    os.makedirs(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}'), exist_ok=True)
+    os.makedirs(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg'), exist_ok=True)
+    
+    report = Report(title=f'MEG Report for Subject {subject_id}', verbose=False)
     
     # Step 1: Power line artifact removal using notch filter
-    raw = mne.io.read_raw_fif(input_file, preload=True)
+    raw = mne.io.read_raw_fif(input_file, preload=True, verbose=False)
     report.add_raw(raw, title=f'Subject {subject_id} - Pre powerline artefact removal', psd=True)
     
-    raw.notch_filter(freqs=[power_line_freq, 2*power_line_freq, 3*power_line_freq, 4*power_line_freq, 5*power_line_freq])
+    raw.notch_filter(freqs=[power_line_freq, 2*power_line_freq, 3*power_line_freq, 4*power_line_freq, 5*power_line_freq], verbose=False)
     report.add_raw(raw, title=f'Subject {subject_id} - Power Line Artifact Removal', psd=True)
+    raw.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_raw_notch_meg.fif'), overwrite=True)
 
     # Step 2: Low-pass and High-pass filtering
-    raw.filter(l_freq=1, h_freq=250)  # High-pass at 1 Hz, Low-pass at 40 Hz
+    raw.filter(l_freq=1, h_freq=250, verbose=False)  # High-pass at 1 Hz, Low-pass at 40 Hz
     report.add_raw(raw, title=f'Subject {subject_id} - Bandpass Filtering', psd=True)
-    
+    raw.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_raw_filtered_meg.fif'), overwrite=True)
+
     # Step 3: ICA works best on the data without bad epochs. https://autoreject.github.io/stable/auto_examples/plot_autoreject_workflow.html
     # Thus, first apply AutoReject to remove bad epochs
     events = mne.make_fixed_length_events(raw, duration=2, overlap=0)
@@ -31,18 +34,18 @@ def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVE
     ar = AutoReject(picks="mag",n_jobs=-1, random_state=99, n_interpolate=[1, 4, 8, 16, 32])
     ar.fit(epochs)
     
-    reject_log = ar.get_reject_log(epochs, picks='mag')
+    epochs, reject_log = ar.fit_transform(epochs, return_log=True)
     report.add_figure(reject_log.plot('horizontal'), title=f'Subject {subject_id} - Autoreject Log')
     report.add_epochs(epochs, title=f'Subject {subject_id} - Autoreject Applied for Epochs')
+    epochs.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_AR_PreICA_ft_epochs_meg.fif'), overwrite=True)
     
     output_file_reject_log = os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_reject_log_AR_pre_meg.fif')
-    os.makedirs(os.path.dirname(output_file_reject_log), exist_ok=True)
     reject_log.save(output_file_reject_log, overwrite=True)
 
     # Step 3:ICA 
     # Second, apply ICA to remove artifacts
-    ica = ICA(n_components=20, random_state=97, method="picard")
-    ica.fit(epochs[~reject_log.bad_epochs], picks="mag")
+    ica = ICA(n_components=0.90, random_state=97, method="picard")
+    ica.fit(epochs, picks="mag")
     
     # step 3.1 ECG / EOG artifact removal
     # ica.exclude = []
@@ -73,7 +76,6 @@ def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVE
 
     # # Save the cleaned data (Epochs) to a new FIF file
     output_file = os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_cleaned_epochs_meg.fif')
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     epochs_ar_clean_ICA_ar.save(output_file, overwrite=True)
 
     report.add_epochs(epochs_ar_clean_ICA_ar, title=f'Subject {subject_id} - Cleaned Epochs', psd=True)
@@ -82,7 +84,6 @@ def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVE
     report.save(os.path.join(f"/users/local/Venkatesh/LSD_project/Preprocessing_Reports/{task}/{drug}", f'sub-{subject_id}_report.html'), overwrite=True)
 
     output_file_reject_log = os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_reject_log_AR_post_meg.fif')
-    os.makedirs(os.path.dirname(output_file_reject_log), exist_ok=True)
     reject_log_post_ICA.save(output_file_reject_log, overwrite=True)
 
 def main():
@@ -222,6 +223,7 @@ def main():
     # Hardcoded BIDS and derivatives directories
     BIDS_DIR = f'/users/local/Venkatesh/LSD_project/src_data/fif_data_BIDS/{args.task}/{args.drug}/'
     DERIVATIVES_DIR = f'/users/local/Venkatesh/LSD_project/src_data/derivatives/{args.task}/{args.drug}/'
+    
     task = args.task
     drug = args.drug
     
