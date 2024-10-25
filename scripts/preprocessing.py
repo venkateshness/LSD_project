@@ -34,18 +34,19 @@ def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVE
     ar = AutoReject(picks="mag",n_jobs=-1, random_state=99, n_interpolate=[1, 4, 8, 16, 32])
     ar.fit(epochs)
     
-    epochs, reject_log = ar.fit_transform(epochs, return_log=True)
+    reject_log = ar.get_reject_log(epochs, picks='mag')
     report.add_figure(reject_log.plot('horizontal'), title=f'Subject {subject_id} - Autoreject Log')
     report.add_epochs(epochs, title=f'Subject {subject_id} - Autoreject Applied for Epochs')
-    epochs.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_AR_PreICA_ft_epochs_meg.fif'), overwrite=True)
+    # epochs.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_AR_PreICA_ft_epochs_meg.fif'), overwrite=True)
     
     output_file_reject_log = os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_reject_log_AR_pre_meg.fif')
     reject_log.save(output_file_reject_log, overwrite=True)
 
     # Step 3:ICA 
     # Second, apply ICA to remove artifacts
-    ica = ICA(n_components=0.90, random_state=97, method="picard")
-    ica.fit(epochs, picks="mag")
+    ica = ICA(n_components=20, random_state=97, method="picard")
+    ica.fit(epochs[~reject_log.bad_epochs], picks="mag")
+    ica.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_ica_meg.fif'), overwrite=True)
     
     # step 3.1 ECG / EOG artifact removal
     # ica.exclude = []
@@ -54,7 +55,7 @@ def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVE
 
     eog_epochs = mne.preprocessing.create_eog_epochs(raw, ch_name=["EEG057", "EEG058"])
     eog_indices, eog_scores = ica.find_bads_eog(eog_epochs, ch_name=["EEG057", "EEG058"])
-    
+        
     report.add_ica(ica, inst=None, title=f'Subject {subject_id}, IC; EOG match with EOG channels: {eog_indices}',  eog_scores=eog_scores,  n_jobs=-1)
     report.add_ica(ica, inst=None, title=f'Subject {subject_id}, IC; ECG match with ECG channels: {ecg_indices}',  ecg_scores=ecg_scores,  n_jobs=-1)
 

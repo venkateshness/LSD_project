@@ -210,7 +210,7 @@ plt.plot(raw.pick('EEG061').get_data()[2400:2400])
 from mne.preprocessing import ICA
 
 
-ica = ICA(n_components=0.90, random_state=97, method="picard")
+ica = ICA(n_components=0.90, random_state=97, method="infomax")
 ica.fit(epochs_fixed_length, picks="mag")
 
 
@@ -220,4 +220,21 @@ ica.fit(epochs_fixed_length, picks="mag")
 ica.plot_components( outlines=None)
 # %%
 ica.plot_sources(epochs_fixed_length,start=0, stop=20)
+# %%
+ica = mne.io.(f"/users/local/Venkatesh/LSD_project/src_data/derivatives/Music/LSD/sub-03/meg/sub-03_ica_meg.fif")
+# %%
+ica = mne.preprocessing.read_ica(f"/users/local/Venkatesh/LSD_project/src_data/derivatives/Music/LSD/sub-03/meg/sub-03_ica_meg.fif")
+# %%
+ica.exclude = [1, 2, 3, 4, 6, 7, 14, 15, 16, 17]
+# %%
+ica.apply(filtered_data).plot(start=20, duration=20)
+# %%
+raw.plot(start=0, duration=50)
+# %%
+raw_raw = mne.io.read_raw_fif(f"/users/local/Venkatesh/LSD_project/src_data/fif_data_BIDS/Music/LSD/{sub}/ses-01/meg/{sub}_ses-01_task-Music_meg.fif", preload=True)
+
+# %%
+raw_raw.plot(start=0, duration=50)
+# %%
+filtered_data.compute_psd(fmax=250).plot()
 # %%
