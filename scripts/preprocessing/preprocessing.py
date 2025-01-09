@@ -5,6 +5,7 @@ from autoreject import AutoReject
 from mne.preprocessing import ICA
 from mne.report import Report
 from joblib import Parallel, delayed
+import numpy as np
 
 def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVES_DIR, power_line_freq=50):
     input_file = os.path.join(input_dir, f'sub-{subject_id}', f'ses-01', 'meg', f'sub-{subject_id}_ses-01_task-{task}_meg.fif')
@@ -23,7 +24,7 @@ def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVE
     raw.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_raw_notch_meg.fif'), overwrite=True)
 
     # Step 2: Low-pass and High-pass filtering
-    raw.filter(l_freq=1, h_freq=250, verbose=False)  # High-pass at 1 Hz, Low-pass at 40 Hz
+    raw.filter(l_freq=1, h_freq=125, verbose=False)  # High-pass at 1 Hz, Low-pass at 40 Hz
     report.add_raw(raw, title=f'Subject {subject_id} - Bandpass Filtering', psd=True)
     raw.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_raw_filtered_meg.fif'), overwrite=True)
 
@@ -31,6 +32,13 @@ def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVE
     # Thus, first apply AutoReject to remove bad epochs
     events = mne.make_fixed_length_events(raw, duration=2, overlap=0)
     epochs = mne.Epochs(raw, events, event_id=1, tmin=0, tmax=1.999, baseline=None, preload=True, picks='meg')
+    
+    # step 3.1: Fetch from fif_data_BIDS, where it's manually annotated, the bad epochs
+    #######Rremoved for RestC.. first run
+    # manually_annotated_good_epochs = np.load(f'/users/local/Venkatesh/LSD_project/src_data/fif_data_BIDS_epochs/{task}/{drug}/sub-{subject_id}/meg/sub-{subject_id}_good_epochs_upon_visual_inspection_of_raw_filtered_epochs.npz')['arr_0']
+    # epochs = epochs[manually_annotated_good_epochs]
+    # epochs.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_epochs_meg.fif'), overwrite=True)
+    
     ar = AutoReject(picks="mag",n_jobs=-1, random_state=99, n_interpolate=[1, 4, 8, 16, 32])
     ar.fit(epochs)
     
@@ -109,53 +117,53 @@ def main():
 
     "LSD": {
 
-    "01": [7, 11],
+    "010": [8, 11],
 
-    "02": [0, 2, 4, 5],
+    "015": [0, 1, 2, 4, 5, 12],
 
-    "03": [10, 13],
+    "016": [7, 8, 3, 5, 13], 
 
-    "04": [0, 1],
+    "013": [0, 1, 7],
 
-    "05": [12, 15],
+    "006": [19],
 
-    "06": [17],
+    "005": [2],
 
-    "07": [10, 15],
+    "011": [14, 19],
 
-    "08": [1, 3],
+    "003": [0, 1, 2],
 
-    "09": [0, 14],
+    "018": [0, 11],
 
-    "10": [0],
+    "017": [0, 18, 19, 4],
 
-    "11": [3]
+    "009": [0, 1, 3, 4, 5, 11]
 
     },
 
     "PLA": {
 
-    "01": [8],
+    "011": [8],
 
-    "02": [19],
+    "010": [19],
 
-    "03": [9],
+    "005": [9],
 
-    "04": [14],
+    "017": [15],
 
-    "05": [18, 19],
+    "018": [19],
 
-    "06": [17, 18],
+    "003": [17],
 
-    "07": [],  
+    "006": [],
 
-    "08": [0, 12, 17],
+    "009": [8, 16],
 
-    "09": [9, 10, 14],
+    "013": [8, 14, 11],
 
-    "10": [13],
+    "016": [14],
 
-    "11": [0, 1, 3, 9]
+    "015": [0, 1, 3, 6]
 
     }
 
@@ -165,53 +173,53 @@ def main():
 
     "LSD": {
 
-    "01": [7, 9],
+    "011": [11,  17],
 
-    "02": [5, 11],
+    "016": [0, 1, 2, 3, 4, 5, 6, 7, 10 ],
 
-    "03": [0, 3, 6],
+    "006": [0, 3, 6, 15],
 
-    "04": [2, 3, 4],
+    "015": [1, 2, 3, 4, 11],
 
-    "05": [0, 2],
+    "003": [0, 2],
 
-    "06": [2, 5],
+    "010": [2, 5],
 
-    "07": [0, 1],
+    "013": [0, 1],
 
-    "08": [8, 13],
+    "005": [8, 13],
 
-    "09": [0, 1],
+    "018": [0, 1, 12],
 
-    "10": [0, 1],
+    "017": [0, 1, 7, 8, 9, 19],
 
-    "11": [0, 1]
+    "009": [0, 1, 10]
 
     },
 
     "PLA": {
 
-    "01": [3, 11],
+    "011": [4],
 
-    "02": [0, 3],
+    "018": [0, 2],
 
-    "03": [0, 1, 2, 8],
+    "015": [0, 1, 2, 5],
 
-    "04": [0, 12],
+    "010": [0, 13],
 
-    "05": [0, 13],
+    "017": [0, 13, 19],
 
-    "06": [0, 9],
+    "016": [0, 9, 19],
 
-    "07": [15, 16],
+    "005": [15, 16],
 
-    "08": [0, 16],
+    "006": [0, 18],
 
-    "09": [1, 3],
+    "003": [1, 3],
 
-    "10": [0, 1],
+    "009": [0, 1],
 
-    "11": [0, 1, 2]
+    "013": [0, 1]
 
     }
 
@@ -223,7 +231,7 @@ def main():
     
     # Hardcoded BIDS and derivatives directories
     BIDS_DIR = f'/users/local/Venkatesh/LSD_project/src_data/fif_data_BIDS/{args.task}/{args.drug}/'
-    DERIVATIVES_DIR = f'/users/local/Venkatesh/LSD_project/src_data/derivatives/{args.task}/{args.drug}/'
+    DERIVATIVES_DIR = f'/users/local/Venkatesh/LSD_project/src_data/derivatives/func/{args.task}/{args.drug}/'
     
     task = args.task
     drug = args.drug
@@ -297,4 +305,8 @@ if __name__ == '__main__':
 # plt.plot(data_mne.times, score)
 # # %%
 # len(np.where(score>3)[0])
+# %%
+import os 
+
+os.listdir('/users/local/Venkatesh/LSD_project/src_data/fif_data_BIDS_epochs/Video/LSD/')
 # %%

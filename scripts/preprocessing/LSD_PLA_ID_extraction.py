@@ -20,11 +20,11 @@ df_all = pd.merge(LSD_PLA_order, filtered_ID, on ="subject #", how="inner").drop
 # rename folder 010813-4_LSD_20140820_Video to 010814-4_LSD_20140820_Video
 
 # Define the base directory containing the mislabelled folders and files
-base_directory = f"{HOMEDIR}/src_data/ds_data/Video/"
+base_directory = f"{HOMEDIR}/src_data/ds_data/Rest_Closed/"
 
 # Define the pattern that needs correction (e.g., incorrect label)
-pattern = r'010814-4_LSD_20140903_Video'  # Replace with the actual pattern
-replacement = '010813-4_LSD_20140903_Video'  # Replace with the correct label
+pattern = r'010814-4_LSD_20140903_Closed1'  # Replace with the actual pattern
+replacement = '010813-4_LSD_20140903_Closed1'  # Replace with the correct label
 
 def rename_files_and_dirs(base_dir, pattern, replacement):
     # Compile the regular expression pattern
@@ -61,6 +61,9 @@ def rename_files_and_dirs(base_dir, pattern, replacement):
 
 rename_files_and_dirs(base_directory, pattern, replacement)
 
+pattern = r'Closed1'
+replacement = 'Closed' 
+rename_files_and_dirs(base_directory, pattern, replacement)
 # %%
 
 
@@ -71,7 +74,7 @@ rename_files_and_dirs(base_directory, pattern, replacement)
 # slap LSD or PLAC
 
 
-directory=f"{HOMEDIR}/src_data/ds_data/Video/"
+directory=f"{HOMEDIR}/src_data/ds_data/Rest_Closed/"
 
 # listdir, sort order
 def startswith_and_order(subID):
@@ -94,6 +97,7 @@ for key in dict_by_subj.keys():
 # look for the order for condition LSD; 
 # if it's 1, that means LSD session is #1 we have to write PLA to file #2
     if order_for_subjects[0] == '1':
+        print(dict_by_subj[f'{key}'])
         new_labelling.append(dict_by_subj[f'{key}'][0].replace('LSD', 'LSD'))
         new_labelling.append(dict_by_subj[f'{key}'][1].replace('LSD', 'PLA'))
 
@@ -104,7 +108,7 @@ for key in dict_by_subj.keys():
 
 
 #%%
-original_folders = [f for f in sorted(os.listdir(directory)) if f.endswith(f"Video.ds")]
+original_folders = [f for f in sorted(os.listdir(directory)) if f.endswith(f"Closed.ds")]
 
 
 for original, new in zip(sorted(original_folders), sorted(new_labelling)):
@@ -120,16 +124,22 @@ for original, new in zip(sorted(original_folders), sorted(new_labelling)):
 #first put LSD and PLA folders into their their respective directory
 #### replacing LSD to PLA for sub folders in the PLA directory
 import os
-subjects_list = os.listdir(f"{HOMEDIR}/src_data/ds_data/Video/PLA/")
+subjects_list = os.listdir(f"{HOMEDIR}/src_data/ds_data/Rest_Closed/PLA/")
+
 for eachsubject in subjects_list:
-    directory_to_search = os.listdir(f'{HOMEDIR}/src_data/ds_data/Video/PLA/{eachsubject}')
+    directory_to_search = os.listdir(f'{HOMEDIR}/src_data/ds_data/Rest_Closed/PLA/{eachsubject}')
     for old in directory_to_search:
 
-        directory = f'{HOMEDIR}/src_data/ds_data/Video/PLA/{eachsubject}/'
+        directory = f'{HOMEDIR}/src_data/ds_data/Rest_Closed/PLA/{eachsubject}/'
         old_path = os.path.join(directory, old)
 
         new = old.replace('LSD', 'PLA')
         new_path = os.path.join(directory, new)
         os.rename(old_path, new_path)
 
+# # %%
+
+# %%
+
+pd.read_excel(f'{HOMEDIR}/src_data/IDs.xlsx', header=2)
 # %%
