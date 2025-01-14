@@ -49,8 +49,8 @@ def compute_psd_subjects(task, drug):
 
     return psd_subjects
 
-LSD = compute_psd_subjects(task='Video', drug='LSD')
-PLA = compute_psd_subjects(task='Video', drug='PLA')
+LSD = compute_psd_subjects(task='Music', drug='LSD')
+PLA = compute_psd_subjects(task='Music', drug='PLA')
 
 # %%
 
@@ -58,9 +58,9 @@ LSD_low, LSD_medium, LSD_high = frequency_splits(np.array(list(LSD.values())))
 PLA_low, PLA_medium, PLA_high = frequency_splits(np.array(list(PLA.values())))
 # %%
 import seaborn as sns
-sns.barplot(data=[np.mean(LSD_low, axis=0), np.mean(PLA_low, axis=0)])
+# sns.barplot(data=[np.mean(LSD_low, axis=0), np.mean(PLA_low, axis=0)])
 # sns.barplot(data=[np.mean(LSD_medium, axis=0), np.mean(PLA_medium, axis=0)])
-# sns.barplot(data=[np.mean(LSD_high, axis=0), np.mean(PLA_high, axis=0)])
+sns.barplot(data=[np.mean(LSD_high, axis=0), np.mean(PLA_high, axis=0)])
 
 # %%
 scipy.stats.ttest_rel(np.mean(LSD_low, axis=0), np.mean(PLA_low, axis=0))

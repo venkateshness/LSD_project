@@ -60,20 +60,21 @@ def forward_model(subjects_dir, subject, epochs, trans, src, bem_sol, drug):
     fwd_file = f"{subjects_dir}/anat/{drug}/{subject}/bem/{subject}-fwd.fif"
     subjects_dir = f"{subjects_dir}/anat/{drug}"
 
-    if os.path.exists(fwd_file):
-        print(f"Forward model found for subject {subject}. Loading forward model...")
-        fwd = mne.read_forward_solution(fwd_file)
-        print(f"Forward model loaded for subject {subject}.")
-        return fwd
+    # if os.path.exists(fwd_file):
+    #     print(f"Forward model found for subject {subject}. Loading forward model...")
+    #     fwd = mne.read_forward_solution(fwd_file)
+    #     print(f"Forward model loaded for subject {subject}.")
+    #     return fwd
     
-    else:
-        print(f"Forward model not found for subject {subject}. Creating forward model...")
-        fwd = mne.make_forward_solution(epochs.info, trans=trans, src=src, bem=bem_sol,
-                                        meg=True, eeg=False)
-        
-        mne.write_forward_solution(fwd_file, fwd, overwrite=True)
-        print(f"Forward model created and saved at {fwd_file}.")    
-        return fwd
+    # else:
+    print(f"Forward model not found for subject {subject}. Creating forward model...")
+    fwd = mne.make_forward_solution(epochs.info, trans=trans, src=src, bem=bem_sol,
+                                    meg=True, eeg=False)
+    fwd_converted = mne.convert_forward_solution(fwd, force_fixed=True)
+    
+    mne.write_forward_solution(fwd_file, fwd_converted, overwrite=True)
+    print(f"Forward model created and saved at {fwd_file}.")    
+    return fwd_converted
 
 
 def averaging_by_parcellation(sub):
@@ -100,12 +101,21 @@ def averaging_by_parcellation(sub):
     return source_signal_in_parcels
 
 
-def parcellation(src):
-    labels_parc = mne.read_labels_from_annot('fsaverage', parc='', subjects_dir=subjects_dir)
+def parcellation(stc):
+    """Parcellate the source estimate."""
+    labels=mne.read_labels_from_annot('fsaverage', 'HCPMMP1', sort=False, subjects_dir='/users/local/Venkatesh/LSD_project/src_data/derivatives/anat/LSD')
+    src = mne.read_source_spaces(f"{subjects_dir}/anat/LSD/fsaverage/bem/fsaverage-ico-5-src.fif")
 
+    exclude_indices = [0, 181]
+    valid_labels = [label for i, label in enumerate(labels) if i not in exclude_indices]
+    
     label_ts = mne.extract_label_time_course(
-    [stc], labels_parc, src, mode="mean", allow_empty=True
-)
+        stc, labels=valid_labels, src=src, mode="mean_flip", allow_empty=True, mri_resolution=False
+    )
+    
+    
+    
+    return label_ts
 
 def morph_subject_activity_to_fsaverage(stcs, fwd, subject_from, subjects_dir, task, drug):
     """Morph the source estimate to fsaverage."""
@@ -122,7 +132,6 @@ def morph_subject_activity_to_fsaverage(stcs, fwd, subject_from, subjects_dir, t
         stc_morphed = morph.apply(stc)
         stc_morphed_all_epochs.append(stc_morphed)
     
-    stc_morphed_all_epochs = np.array(stc_morphed_all_epochs)
     return stc_morphed_all_epochs
     #np.savez_compressed(f"{subjects_dir}/func/{task}/{drug}/{subject_from}/meg/source_estimates/{subject_from}_source_estimate_fsaverage.npz", stc_morphed_all_epochs)
     
@@ -140,7 +149,7 @@ def run_source_localization(subjects_dir, subject, task, drug):
     epochs = epochs.pick_types(meg=True, eeg=False, ref_meg=False)
     
     if not os.path.exists(f"{subjects_dir}/func/{task}/{drug}/{subject}/meg/{subject}_cleaned_epochs_resampled_meg.fif"):
-        epochs = epochs.resample(500)
+        epochs = epochs.resample(250)
         epochs.save(f"{subjects_dir}/func/{task}/{drug}/{subject}/meg/{subject}_cleaned_epochs_resampled_meg.fif", overwrite=True)
     
     else:
@@ -160,7 +169,7 @@ def run_source_localization(subjects_dir, subject, task, drug):
     noise_cov = mne.Covariance(data=noise_cov_data, names=epochs.info['ch_names'], bads=[], projs=[], nfree=1)
     
     # Create the inverse operator
-    inverse_operator = mne.minimum_norm.make_inverse_operator(epochs.info, fwd_model, noise_cov, loose=0.2, depth=0.8)
+    inverse_operator = mne.minimum_norm.make_inverse_operator(epochs.info, fwd_model, noise_cov, loose=0, fixed=True, depth=None)
     print(f"Inverse operator created for subject {subject}.")
 
     # # Apply the inverse solution to create a source estimate
@@ -169,30 +178,18 @@ def run_source_localization(subjects_dir, subject, task, drug):
     lambda2 = 1.0 / snr**2
     stcs = mne.minimum_norm.apply_inverse_epochs(epochs, inverse_operator, lambda2,
                                               method=method)
-    print(f"Source localization complete for subject {subject}.")
+
 
     morphed_stc = morph_subject_activity_to_fsaverage(stcs, fwd_model, subject, subjects_dir, task, drug)    
 
-    stc_data_all = []
-    for stc in morphed_stc:
-        stc_data_all.append(stc.data)
+    stc_parcellated_all = parcellation(morphed_stc)
     
-    stc_data_all = np.array(stc_data_all)
-    if not os.path.exists(f"{subjects_dir}/func/{task}/{drug}/{subject}/meg/source_estimates"):
-        os.makedirs(f"{subjects_dir}/func/{task}/{drug}/{subject}/meg/source_estimates")
+    # stc_parcellated_all = []
+    # for i in range(len(morphed_stc)):
+    #     stc_parcellated = parcellation(morphed_stc[i])
+    #     stc_parcellated_all.append(stc_parcellated)
     
-    
-    stc_parcellated_all = []
-    for i in range(len(stc_data_all)):
-        stc_parcellated = averaging_by_parcellation(stc_data_all[i])
-        stc_parcellated_all.append(stc_parcellated)
-    
-    stc_parcellated_all = np.array(stc_parcellated_all)
     np.savez_compressed(f"{subjects_dir}/func/{task}/{drug}/{subject}/meg/source_estimates/{subject}_source_estimate_parcellated.npz", stc_parcellated = stc_parcellated_all)
-    
-    # np.savez_compressed(f"{subjects_dir}/func/{task}/{drug}/{subject}/meg/source_estimates/{subject}_source_estimate.npz", stc=stc_data_all)
-    
-    
     
 
 if __name__ == "__main__":
@@ -240,25 +237,22 @@ if __name__ == "__main__":
 # src = mne.setup_source_space(
 #     'fsaverage', spacing="ico5", add_dist=False, subjects_dir=subjects_dir
 # )
-# labels=mne.read_labels_from_annot('fsaverage', 'HCPMMP1', subjects_dir='/users/local/Venkatesh/LSD_project/src_data/derivatives/anat/LSD')
-# label_ts = mne.extract_label_time_course(
-#     [stc], labels=labels, src=src, mode="mean", allow_empty=True
-# )
+
 # # %%
 # label_ts
 # # %%
-morphedstc = np.load('/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Music/PLA/sub-009/meg/source_estimates/sub-009_source_estimate_parcellated.npz', allow_pickle=True)['stc_parcellated']
+# morphedstc = np.load('/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Music/PLA/sub-009/meg/source_estimates/sub-009_source_estimate_parcellated.npz', allow_pickle=True)['stc_parcellated']
 
-from nilearn.regions import signals_to_img_labels
-from nilearn.datasets import fetch_icbm152_2009
-from nilearn import plotting
-HOMEDIR = "/users/local/Venkatesh/LSD_project"
-path_Glasser = f"{HOMEDIR}/src_data/Glasser_masker.nii.gz"
-mnitemp  = fetch_icbm152_2009()
-data_to_plot_morphed = np.mean(morphedstc, axis=(0,2))
-zscore = (data_to_plot_morphed - np.mean(data_to_plot_morphed))/np.std(data_to_plot_morphed)
-nifti= signals_to_img_labels(zscore, path_Glasser, mnitemp["mask"])
+# from nilearn.regions import signals_to_img_labels
+# from nilearn.datasets import fetch_icbm152_2009
+# from nilearn import plotting
+# HOMEDIR = "/users/local/Venkatesh/LSD_project"
+# path_Glasser = f"{HOMEDIR}/src_data/Glasser_masker.nii.gz"
+# mnitemp  = fetch_icbm152_2009()
+# data_to_plot_morphed = np.mean(morphedstc, axis=(0,2))
+# zscore = (data_to_plot_morphed - np.mean(data_to_plot_morphed))/np.std(data_to_plot_morphed)
+# nifti= signals_to_img_labels(zscore, path_Glasser, mnitemp["mask"])
 
-plotting.plot_img_on_surf(stat_map=nifti, views=["lateral", "medial"], hemispheres=["left", "right"], symmetric_cbar=True)
+# plotting.plot_img_on_surf(stat_map=nifti, views=["lateral", "medial"], hemispheres=["left", "right"], symmetric_cbar=True)
 
 # %%

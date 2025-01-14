@@ -8,15 +8,15 @@ import scipy.stats
 # Define subjects and conditions
 subjects = ['003', '005', '006', '009', '010', '013', '015', '016', '017', '018']
 conditions = ['LSD', 'PLA']
-base_path = '/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Music'
+base_path = '/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Video'
 #%%
 # Define canonical frequency bands
 freq_bands = {
     "Delta": (1, 4),
     "Theta": (4, 8),
-    "Alpha": (8, 13),
-    "Beta": (13, 30),
-    "Gamma": (30, 50)
+    "Alpha": (8, 15),
+    "Beta": (15, 30),
+    "Gamma": (30, 49)
 }
 
 # Initialize storage for band power data
@@ -31,8 +31,9 @@ for subj in subjects:
         epochs = mne.read_epochs(file_path)
         
         # Compute PSD
-        psd = epochs.compute_psd()
+        psd = epochs.compute_psd().plot()
         psd_data = psd.get_data()  
+        psd_data = 10 * np.log10(psd_data)  # Convert to dB
         freqs = psd.freqs  # Array of frequency points
         
         # Compute band power by averaging within each frequency band
@@ -40,8 +41,8 @@ for subj in subjects:
             # Find indices of frequencies within the band
             band_indices = np.where((freqs > fmin) & (freqs <= fmax))[0]
             
-            # Integrate PSD over the band (mean across frequencies in the band)
-            band_power = psd_data[:, :, band_indices].mean(axis=-1)  # Shape: (n_epochs, n_channels)
+            # Integrate PSD over the band (sum across frequencies in the band)
+            band_power = psd_data[:, :, band_indices].sum(axis=-1)  # Shape: (n_epochs, n_channels)
             
             # Average across epochs for simplicity
             band_power_avg = band_power.mean(axis=0)  # Shape: (n_channels,)
@@ -68,14 +69,34 @@ for band_name in freq_bands:
     # Perform paired t-test across subjects for each channel
     t_vals, p_vals = ttest_rel(power_LSD, power_PLA, axis=0)  # Shape: (n_channels,)
     
+    # print(np.shape(power_PLA))
     power_diff = power_LSD - power_PLA
     
-    T_obs, p_vals, H0 = mne.stats.permutation_t_test(power_diff, n_permutations=1000, tail=0)
+    # adjacency,_ = mne.channels.find_ch_adjacency(epochs.info, "mag")
     
-    # T_obs, p_vals = permutation_cluster_test(power_LSD-power_PLA, axis=0)
+    # T_obs, cluster, cluster_pv, H0 = mne.stats.permutation_cluster_1samp_test(power_diff, n_permutations=1000, tail=0, adjacency=adjacency)
+        
     
-    
-    t_vals = T_obs * (p_vals<0.05)
+    # def shuffle_channels(data):
+    #     permuted_data = np.empty_like(data)  # Placeholder for shuffled data
+    #     for i in range(data.shape[0]):       # Loop over subjects
+    #         np.random.seed(i)
+
+    #         permuted_data[i] = np.random.permutation(data[i])  # Shuffle channels for each subject
+    #     return permuted_data
+
+    # t_perm = []
+    # for perm in range(5000):
+    #     permuted_data = shuffle_channels(power_PLA)
+
+    #     t, _ = ttest_rel(power_LSD, permuted_data, axis=0)
+        
+    #     t_perm.append(t)
+
+    # p_corrected = sum(np.abs(t_perm)>=np.abs(t_vals))/5000
+
+    p_vals_corrected = fdrcorrection(p_vals)[0]
+    t_vals = t_vals * (p_vals_corrected)
     # Store results
     stats_results[band_name] = {"t_vals": t_vals, "p_vals": p_vals}
 
@@ -195,11 +216,11 @@ for band_name in freq_bands:
     
     power_diff = power_LSD - power_PLA
     
-    T_obs, p_vals, H0 = mne.stats.permutation_t_test(power_diff, n_permutations=n_permutations, tail=0)
-    # t, p_vals = scipy.stats.ttest_rel(power_LSD, power_PLA, axis=0)
+    # T_obs, p_vals, H0 = mne.stats.permutation_t_test(power_diff, n_permutations=n_permutations, tail=0)
+    t, p_vals = scipy.stats.ttest_rel(power_LSD, power_PLA, axis=0)
     # p_vals_corrected = fdrcorrection(p_vals)[1]
     
-    t_vals = T_obs * (p_vals<0.05)
+    t_vals = t * (p_vals<0.05)
     # t_vals = t * (p_vals<0.05)
     # Store results
     stats_results[band_name] = {"t_vals": t_vals}
@@ -249,9 +270,9 @@ for band in list(freq_bands.keys()):
 #######whole PSD 
 
 # Define subjects and conditions
-subjects = ['003', '005', '006', '009', '010', '013', '015', '016', '017', '018']
+subjects = ['005']
 conditions = ['LSD', 'PLA']
-base_path = '/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Music'
+base_path = '/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Video'
 
 # Define canonical frequency bands
 freq_bands = {
@@ -324,10 +345,12 @@ import numpy as np
 from scipy.signal import welch
 from scipy.stats import ttest_rel
 import matplotlib.pyplot as plt
+
+from mne.time_frequency import psd_array_multitaper
 conditions = ['LSD', 'PLA']
 
 # Parameters
-fs = 500  # Sampling frequency (Hz)
+fs = 250  # Sampling frequency (Hz)
 n_permutations = 1000  # Number of permutations
 freq_bands = {
     "Delta": (1, 4),
@@ -336,7 +359,7 @@ freq_bands = {
     "Beta": (13, 30),
     "Gamma": (30, 100),
 }
-subjects = ['003', '005', '009', '010', '013', '015', '016', '018']
+subjects = [ '005']
 
 # Placeholder for PSD and statistics
 whole_psd_source = {}
@@ -354,7 +377,7 @@ for condition in conditions:
             for region_idx in range(epoch_data.shape[0]):  # Iterate over regions
                 region_signal = epoch_data[region_idx]  # Shape: (n_samples,)
                 
-                f, psd = welch(region_signal, fs=fs, scaling="spectrum")  # Shape: (n_freqs,)
+                psd, f = psd_array_multitaper(region_signal, sfreq=fs, fmin=1, fmax=60)
                 
                 psd_db = 10 * np.log10(psd)
                 
@@ -369,9 +392,63 @@ for condition in conditions:
                 
                 
 # %%
-
-plt.plot(whole_psd_source['PLA'][2][0], color='red')
-plt.plot(whole_psd_source['LSD'][2][0], color='blue')
+import matplotlib.pyplot as plt
+# plt.plot(whole_psd_source['PLA'][0].T, color='red')
+plt.plot(whole_psd_source['LSD'][0].T, color='blue', alpha=0.1)
 # %%
-plot_psd(whole_psd_source)
+plot_psd(whole_psd)
+# %%
+whole_psd_source['LSD'][0].shape
+# %%
+plt.plot(whole_psd['LSD'][0].T)
+# %%
+
+import numpy as np
+from scipy.signal import welch
+from scipy.stats import ttest_rel
+import matplotlib.pyplot as plt
+
+from mne.time_frequency import psd_array_multitaper
+conditions = ['LSD', 'PLA']
+
+# Parameters
+fs = 250  # Sampling frequency (Hz)
+n_permutations = 1000  # Number of permutations
+freq_bands = {
+    "Delta": (1, 4),
+    "Theta": (4, 8),
+    "Alpha": (8, 13),
+    "Beta": (13, 30),
+    "Gamma": (30, 100),
+}
+
+# Placeholder for PSD and statistics
+whole_psd_source = {}
+subjects = [ '006']
+conditions = ['LSD', 'PLA']
+base_path = '/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Video'
+
+for condition in conditions:
+    psd_subjects = []
+    for subj in subjects:
+        # Load parcellated source-level signal (shape: [n_epochs, n_regions, n_samples])
+        file_path = f'{base_path}/{condition}/sub-{subj}/meg/source_estimates/sub-{subj}_source_estimate_parcellated.npz'
+        source_data = np.load(file_path)['stc_parcellated']  # Load the parcellated data
+
+        ch_array = [f"ch {i}" for i in range(360)]
+
+        info = mne.create_info(ch_names=ch_array, sfreq=250, ch_types='mag')
+
+        source_epochs= mne.EpochsArray(source_data, info)
+        source_epochs.compute_psd(fmin=1, fmax=60).plot()
+        plt.show()
+# %%
+
+
+plt.plot(psd[1], psd[0][0].T)
+# %%
+
+
+# %%
+source_epochs.compute_psd(fmin=1, fmax=60).get_data().shape
 # %%
