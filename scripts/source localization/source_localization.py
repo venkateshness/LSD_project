@@ -19,20 +19,20 @@ def create_source_space(subjects_dir, subject, drug):
     source_space_file = f"{subjects_dir}/anat/{drug}/{subject}/bem/{subject}-ico5-src.fif"
     subjects_dir = f"{subjects_dir}/anat/{drug}"
     
-    if os.path.exists(source_space_file):
-        print(f"Source space found for subject {subject}. Loading source space...")
-        src = mne.read_source_spaces(source_space_file)
-        print(f"Source space loaded for subject {subject}.")
-        return src
+    # if os.path.exists(source_space_file):
+    #     print(f"Source space found for subject {subject}. Loading source space...")
+    #     src = mne.read_source_spaces(source_space_file)
+    #     print(f"Source space loaded for subject {subject}.")
+    #     return src
     
-    else:
-        print(f"Creating source space for subject {subject}...")
-        src = mne.setup_source_space(subject, spacing='ico5', subjects_dir=subjects_dir, n_jobs=-1)
-        print(f"Source space setup complete for subject {subject}.")
-        src_file = f"{subjects_dir}/{subject}/bem/{subject}-ico5-src.fif"
-        mne.write_source_spaces(src_file, src, overwrite=True)
-        
-        print(f"Source space saved at {src_file}.")
+    # else:
+    # print(f"Creating source space for subject {subject}...")
+    src = mne.setup_source_space(subject, spacing='ico5', subjects_dir=subjects_dir, n_jobs=-1)
+    print(f"Source space setup complete for subject {subject}.")
+    src_file = f"{subjects_dir}/{subject}/bem/{subject}-ico5-src.fif"
+    mne.write_source_spaces(src_file, src, overwrite=True)
+    
+    print(f"Source space saved at {src_file}.")
     return src
 
 def bem(subjects_dir, subject, drug):
@@ -40,20 +40,20 @@ def bem(subjects_dir, subject, drug):
     bem_file = f"{subjects_dir}/anat/{drug}/{subject}/bem/{subject}-bem-sol.fif"
     subjects_dir = f"{subjects_dir}/anat/{drug}"
     
-    if os.path.exists(bem_file):
-        print(f"BEM solution found for subject {subject}. Loading BEM solution...")
-        bem_sol = mne.read_bem_solution(bem_file)
-        print(f"BEM solution loaded for subject {subject}.")
-        return bem_sol
+    # if os.path.exists(bem_file):
+    #     print(f"BEM solution found for subject {subject}. Loading BEM solution...")
+    #     bem_sol = mne.read_bem_solution(bem_file)
+    #     print(f"BEM solution loaded for subject {subject}.")
+    #     return bem_sol
     
-    else:
-        print(f"BEM solution not found for subject {subject}. Creating BEM solution...")
-        model = mne.make_bem_model(subject=subject, ico=5, conductivity=(0.3,), subjects_dir=subjects_dir)
-        bem_sol = mne.make_bem_solution(model)
-        mne.write_bem_solution(bem_file, bem_sol, overwrite=True)
-        print(f"BEM solution created and saved at {bem_file}.")
-        
-        return bem_sol
+    # else:
+        # print(f"BEM solution not found for subject {subject}. Creating BEM solution...")
+    model = mne.make_bem_model(subject=subject, ico=5, conductivity=(0.3,), subjects_dir=subjects_dir)
+    bem_sol = mne.make_bem_solution(model)
+    mne.write_bem_solution(bem_file, bem_sol, overwrite=True)
+    print(f"BEM solution created and saved at {bem_file}.")
+    
+    return bem_sol
 
 def forward_model(subjects_dir, subject, epochs, trans, src, bem_sol, drug):
     """Create or load the forward model."""
@@ -70,11 +70,10 @@ def forward_model(subjects_dir, subject, epochs, trans, src, bem_sol, drug):
     print(f"Forward model not found for subject {subject}. Creating forward model...")
     fwd = mne.make_forward_solution(epochs.info, trans=trans, src=src, bem=bem_sol,
                                     meg=True, eeg=False)
-    fwd_converted = mne.convert_forward_solution(fwd, force_fixed=True)
     
-    mne.write_forward_solution(fwd_file, fwd_converted, overwrite=True)
+    mne.write_forward_solution(fwd_file, fwd, overwrite=True)
     print(f"Forward model created and saved at {fwd_file}.")    
-    return fwd_converted
+    return fwd
 
 
 def averaging_by_parcellation(sub):
@@ -110,10 +109,8 @@ def parcellation(stc):
     valid_labels = [label for i, label in enumerate(labels) if i not in exclude_indices]
     
     label_ts = mne.extract_label_time_course(
-        stc, labels=valid_labels, src=src, mode="mean_flip", allow_empty=True, mri_resolution=False
+        stc, labels=valid_labels, src=src, mode="mean", allow_empty=True, mri_resolution=False
     )
-    
-    
     
     return label_ts
 
@@ -169,27 +166,38 @@ def run_source_localization(subjects_dir, subject, task, drug):
     noise_cov = mne.Covariance(data=noise_cov_data, names=epochs.info['ch_names'], bads=[], projs=[], nfree=1)
     
     # Create the inverse operator
-    inverse_operator = mne.minimum_norm.make_inverse_operator(epochs.info, fwd_model, noise_cov, loose=0, fixed=True, depth=None)
+    inverse_operator = mne.minimum_norm.make_inverse_operator(epochs.info, fwd_model, noise_cov, loose=0.2, depth=0.8)
     print(f"Inverse operator created for subject {subject}.")
 
     # # Apply the inverse solution to create a source estimate
     method = "dSPM"  # could choose MNE, sLORETA, or eLORETA instead
     snr = 1.0 # or 1 
     lambda2 = 1.0 / snr**2
-    stcs = mne.minimum_norm.apply_inverse_epochs(epochs, inverse_operator, lambda2,
-                                              method=method)
+    # stcs = mne.minimum_norm.apply_inverse_epochs(epochs, inverse_operator, lambda2,
+                                            #   method=method)
+    
+    source_psd = mne.minimum_norm.compute_source_psd_epochs(epochs, inverse_operator, lambda2=lambda2, method=method, fmin=1.0, fmax=60.0, pick_ori="normal", label=None, nave=1, pca=True, inv_split=None, adaptive=False, low_bias=True, return_generator=False, n_jobs=None, prepared=False, method_params=None, return_sensor=False, use_cps=True, verbose=None)
+    
+    # import matplotlib.pyplot as plt
+    # fig, ax = plt.subplots()
+    # ax.plot(source_psd[0].data.T)
+    # ax.set_xlabel("Freq (Hz)")
+    # ax.set_ylabel("Power Spectral Density")
+    # fig.set_size_inches(15, 5)
+    # fig.savefig(f"{subjects_dir}/func/{task}/{drug}/{subject}/meg/source_estimates/{subject}_source_psd.png")
+    # print(f"Source localization complete for subject {subject}.")
 
+    morphed_psd = morph_subject_activity_to_fsaverage(source_psd, fwd_model, subject, subjects_dir, task, drug)    
 
-    morphed_stc = morph_subject_activity_to_fsaverage(stcs, fwd_model, subject, subjects_dir, task, drug)    
-
-    stc_parcellated_all = parcellation(morphed_stc)
     
     # stc_parcellated_all = []
-    # for i in range(len(morphed_stc)):
-    #     stc_parcellated = parcellation(morphed_stc[i])
+    # for i in range(len(morphed_psd)):
+    #     stc_parcellated = averaging_by_parcellation(stcs[i].data)
     #     stc_parcellated_all.append(stc_parcellated)
     
-    np.savez_compressed(f"{subjects_dir}/func/{task}/{drug}/{subject}/meg/source_estimates/{subject}_source_estimate_parcellated.npz", stc_parcellated = stc_parcellated_all)
+    psd_parcellated = parcellation(morphed_psd)
+    
+    np.savez_compressed(f"{subjects_dir}/func/{task}/{drug}/{subject}/meg/source_estimates/{subject}_source_psd.npz", psd_parcellated = psd_parcellated)
     
 
 if __name__ == "__main__":
@@ -241,18 +249,18 @@ if __name__ == "__main__":
 # # %%
 # label_ts
 # # %%
-# morphedstc = np.load('/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Music/PLA/sub-009/meg/source_estimates/sub-009_source_estimate_parcellated.npz', allow_pickle=True)['stc_parcellated']
+morphedstc = np.load('/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Music/PLA/sub-009/meg/source_estimates/sub-009_source_estimate_parcellated.npz', allow_pickle=True)['stc_parcellated']
 
-# from nilearn.regions import signals_to_img_labels
-# from nilearn.datasets import fetch_icbm152_2009
-# from nilearn import plotting
-# HOMEDIR = "/users/local/Venkatesh/LSD_project"
-# path_Glasser = f"{HOMEDIR}/src_data/Glasser_masker.nii.gz"
-# mnitemp  = fetch_icbm152_2009()
-# data_to_plot_morphed = np.mean(morphedstc, axis=(0,2))
-# zscore = (data_to_plot_morphed - np.mean(data_to_plot_morphed))/np.std(data_to_plot_morphed)
-# nifti= signals_to_img_labels(zscore, path_Glasser, mnitemp["mask"])
+from nilearn.regions import signals_to_img_labels
+from nilearn.datasets import fetch_icbm152_2009
+from nilearn import plotting
+HOMEDIR = "/users/local/Venkatesh/LSD_project"
+path_Glasser = f"{HOMEDIR}/src_data/Glasser_masker.nii.gz"
+mnitemp  = fetch_icbm152_2009()
+data_to_plot_morphed = np.mean(morphedstc, axis=(0,2))
+zscore = (data_to_plot_morphed - np.mean(data_to_plot_morphed))/np.std(data_to_plot_morphed)
+nifti= signals_to_img_labels(zscore, path_Glasser, mnitemp["mask"])
 
-# plotting.plot_img_on_surf(stat_map=nifti, views=["lateral", "medial"], hemispheres=["left", "right"], symmetric_cbar=True)
+plotting.plot_img_on_surf(stat_map=nifti, views=["lateral", "medial"], hemispheres=["left", "right"], symmetric_cbar=True)
 
 # %%
