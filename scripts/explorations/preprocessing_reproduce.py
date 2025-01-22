@@ -4,11 +4,13 @@ import mne
 import numpy as np
 from scipy.stats import ttest_rel
 import scipy.stats
+from statsmodels.stats.multitest import fdrcorrection
+
 
 # Define subjects and conditions
 subjects = ['003', '005', '006', '009', '010', '013', '015', '016', '017', '018']
 conditions = ['LSD', 'PLA']
-base_path = '/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Video'
+base_path = '/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Music'
 #%%
 # Define canonical frequency bands
 freq_bands = {
@@ -31,9 +33,8 @@ for subj in subjects:
         epochs = mne.read_epochs(file_path)
         
         # Compute PSD
-        psd = epochs.compute_psd().plot()
+        psd = epochs.compute_psd()
         psd_data = psd.get_data()  
-        psd_data = 10 * np.log10(psd_data)  # Convert to dB
         freqs = psd.freqs  # Array of frequency points
         
         # Compute band power by averaging within each frequency band
@@ -70,11 +71,11 @@ for band_name in freq_bands:
     t_vals, p_vals = ttest_rel(power_LSD, power_PLA, axis=0)  # Shape: (n_channels,)
     
     # print(np.shape(power_PLA))
-    power_diff = power_LSD - power_PLA
+    # power_diff = power_LSD - power_PLA
     
     # adjacency,_ = mne.channels.find_ch_adjacency(epochs.info, "mag")
     
-    # T_obs, cluster, cluster_pv, H0 = mne.stats.permutation_cluster_1samp_test(power_diff, n_permutations=1000, tail=0, adjacency=adjacency)
+    # T_obs, cluster, cluster_pv, H0 = mne.stats.permutation_cluster_1samp_test(power_diff, n_permutations=1000, tail=0, adjacency=None)
         
     
     # def shuffle_channels(data):
@@ -95,8 +96,7 @@ for band_name in freq_bands:
 
     # p_corrected = sum(np.abs(t_perm)>=np.abs(t_vals))/5000
 
-    p_vals_corrected = fdrcorrection(p_vals)[0]
-    t_vals = t_vals * (p_vals_corrected)
+    t_vals = t_vals * (fdrcorrection(p_vals)[1]<0.05)
     # Store results
     stats_results[band_name] = {"t_vals": t_vals, "p_vals": p_vals}
 
@@ -451,4 +451,9 @@ plt.plot(psd[1], psd[0][0].T)
 
 # %%
 source_epochs.compute_psd(fmin=1, fmax=60).get_data().shape
+# %%
+cluster
+# %%
+from statsmodels.stats.multitest import fdrcorrection
+
 # %%

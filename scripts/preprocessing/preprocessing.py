@@ -7,7 +7,7 @@ from mne.report import Report
 from joblib import Parallel, delayed
 import numpy as np
 
-def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVES_DIR, power_line_freq=50):
+def preprocess_meg(subject_id, input_dir, task, drug, DERIVATIVES_DIR, power_line_freq=50):
     input_file = os.path.join(input_dir, f'sub-{subject_id}', f'ses-01', 'meg', f'sub-{subject_id}_ses-01_task-{task}_meg.fif')
     
     os.makedirs(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}'), exist_ok=True)
@@ -69,7 +69,7 @@ def preprocess_meg(subject_id, input_dir, task, drug, eog_components, DERIVATIVE
 
     ## ICA on epochs_clean
     ecg_components = ecg_indices
-    eog_components = eog_components[task][drug][f"{subject_id}"]
+    eog_components = eog_indices
     to_exclude = list(set(ecg_components + eog_components))
     ica.exclude = to_exclude
     epochs_ar_clean_ICA = ica.apply(epochs, exclude=to_exclude)
@@ -111,121 +111,121 @@ def main():
     #                                             #
     ###############################################
 
-    eog_components = {
+    # eog_components = {
 
-    "Music": {
+    # "Music": {
 
-    "LSD": {
+    # "LSD": {
 
-    "010": [8, 11],
+    # "010": [8, 11],
 
-    "015": [0, 1, 2, 4, 5, 12],
+    # "015": [0, 1, 2, 4, 5, 12],
 
-    "016": [7, 8, 3, 5, 13], 
+    # "016": [7, 8, 3, 5, 13], 
 
-    "013": [0, 1, 7],
+    # "013": [0, 1, 7],
 
-    "006": [19],
+    # "006": [19],
 
-    "005": [2],
+    # "005": [2],
 
-    "011": [14, 19],
+    # "011": [14, 19],
 
-    "003": [0, 1, 2],
+    # "003": [0, 1, 2],
 
-    "018": [0, 11],
+    # "018": [0, 11],
 
-    "017": [0, 18, 19, 4],
+    # "017": [0, 18, 19, 4],
 
-    "009": [0, 1, 3, 4, 5, 11]
+    # "009": [0, 1, 3, 4, 5, 11]
 
-    },
+    # },
 
-    "PLA": {
+    # "PLA": {
 
-    "011": [8],
+    # "011": [8],
 
-    "010": [19],
+    # "010": [19],
 
-    "005": [9],
+    # "005": [9],
 
-    "017": [15],
+    # "017": [15],
 
-    "018": [19],
+    # "018": [19],
 
-    "003": [17],
+    # "003": [17],
 
-    "006": [],
+    # "006": [],
 
-    "009": [8, 16],
+    # "009": [8, 16],
 
-    "013": [8, 14, 11],
+    # "013": [8, 14, 11],
 
-    "016": [14],
+    # "016": [14],
 
-    "015": [0, 1, 3, 6]
+    # "015": [0, 1, 3, 6]
 
-    }
+    # }
 
-    },
+    # },
 
-    "Video": {
+    # "Video": {
 
-    "LSD": {
+    # "LSD": {
 
-    "011": [11,  17],
+    # "011": [11,  17],
 
-    "016": [0, 1, 2, 3, 4, 5, 6, 7, 10 ],
+    # "016": [0, 1, 2, 3, 4, 5, 6, 7, 10 ],
 
-    "006": [0, 3, 6, 15],
+    # "006": [0, 3, 6, 15],
 
-    "015": [1, 2, 3, 4, 11],
+    # "015": [1, 2, 3, 4, 11],
 
-    "003": [0, 2],
+    # "003": [0, 2],
 
-    "010": [2, 5],
+    # "010": [2, 5],
 
-    "013": [0, 1],
+    # "013": [0, 1],
 
-    "005": [8, 13],
+    # "005": [8, 13],
 
-    "018": [0, 1, 12],
+    # "018": [0, 1, 12],
 
-    "017": [0, 1, 7, 8, 9, 19],
+    # "017": [0, 1, 7, 8, 9, 19],
 
-    "009": [0, 1, 10]
+    # "009": [0, 1, 10]
 
-    },
+    # },
 
-    "PLA": {
+    # "PLA": {
 
-    "011": [4],
+    # "011": [4],
 
-    "018": [0, 2],
+    # "018": [0, 2],
 
-    "015": [0, 1, 2, 5],
+    # "015": [0, 1, 2, 5],
 
-    "010": [0, 13],
+    # "010": [0, 13],
 
-    "017": [0, 13, 19],
+    # "017": [0, 13, 19],
 
-    "016": [0, 9, 19],
+    # "016": [0, 9, 19],
 
-    "005": [15, 16],
+    # "005": [15, 16],
 
-    "006": [0, 18],
+    # "006": [0, 18],
 
-    "003": [1, 3],
+    # "003": [1, 3],
 
-    "009": [0, 1],
+    # "009": [0, 1],
 
-    "013": [0, 1]
+    # "013": [0, 1]
 
-    }
+    # }
 
-    }
+    # }
 
-    }
+    # }
 
 ################################################################################
     
@@ -237,7 +237,7 @@ def main():
     drug = args.drug
     
 
-    Parallel(n_jobs=-1)(delayed(preprocess_meg)(subject_id, BIDS_DIR, task, drug, eog_components, DERIVATIVES_DIR) for subject_id in args.subjects)
+    Parallel(n_jobs=-1)(delayed(preprocess_meg)(subject_id, BIDS_DIR, task, drug, DERIVATIVES_DIR) for subject_id in args.subjects)
 
     # Save the combined report
     # output_html = os.path.join(DERIVATIVES_DIR, 'meg_preprocessing_report.html')
@@ -247,66 +247,3 @@ def main():
 if __name__ == '__main__':
     main()
     
-
-#%%
-
-# #%%
-# for i in range(11):
-#     idx = f'{i+1:02}'
-
-#     plt.plot(data_mne.get_data(picks='eeg')[2, 1200:4000].T)#, label=["EEG057", "EEG058", "EEG059", "EEG061", "EEG062", "EEG063", "EEG064"])
-#     plt.title(idx)
-#     plt.show()
-# # # %%
-
-# plt.plot(data_mne.get_data(picks='eeg')[2, 1200:12000].T, label=["EEG057", "EEG058", "EEG059", "EEG061", "EEG062", "EEG063", "EEG064"])
-# # %%
-# plt.plot(data_mne.get_data(picks='eeg')[:5, 1200:5*1200].T, label=["EEG057", "EEG058", "EEG059", "EEG061", "EEG062"])
-# plt.legend()
-# %%
-# import mne
-# import matplotlib.pyplot as plt
-
-# for i in range(11):
-#     idx = f'{i+1:02}'
-#     if i == 3:
-#         continue
-#     data_mne = mne.io.read_raw_fif(f'/users/local/Venkatesh/LSD_project/src_data/fif_data_BIDS/PLA/sub-{idx}/ses-01/meg/sub-{idx}_ses-01_task-music_meg.fif')
-#     plt.plot(data_mne.get_data(picks='eeg')[2, 1200:5*1200].T)
-#     # plt.title(f"EEG0{i+57}")
-#     plt.grid()
-#     plt.show()
-
-# %%
-# # #"ecg": 059
-# plt.plot(data_mne.get_data(picks='eeg')[0, 1200:12000].T-data_mne.get_data(picks='eeg')[1, 1200:12000].T)
-# # # %%
-
-# # %%
-
-# %%
-# import mne
-# data_mne = mne.io.Raw("/users/local/Venkatesh/LSD_project/src_data/fif_data_BIDS/Music/LSD/sub-01/ses-01/meg/sub-01_ses-01_task-Music_meg.fif", preload=True)
-# # data_mne
-# annot, score= mne.preprocessing.annotate_muscle_zscore(data_mne,ch_type="mag",
-#     threshold=4,
-#     min_length_good=0.2,
-#     filter_freq=[110, 140])
-# # # %%
-# # annot
-# # # %%
-# ###############################################
-# #                                             #
-# #                 EOG Data Code               #
-# #                                             #
-# ###############################################
-
-# # %%
-# plt.plot(data_mne.times, score)
-# # %%
-# len(np.where(score>3)[0])
-# %%
-import os 
-
-os.listdir('/users/local/Venkatesh/LSD_project/src_data/fif_data_BIDS_epochs/Video/LSD/')
-# %%
