@@ -6,10 +6,12 @@ from mne.preprocessing import ICA
 from mne.report import Report
 from joblib import Parallel, delayed
 import numpy as np
+from autoreject import get_rejection_threshold
+
 
 def preprocess_meg(subject_id, input_dir, task, drug, DERIVATIVES_DIR, power_line_freq=50):
     input_file = os.path.join(input_dir, f'sub-{subject_id}', f'ses-01', 'meg', f'sub-{subject_id}_ses-01_task-{task}_meg.fif')
-    
+    print(f'Preprocessing MEG data for subject {subject_id}...')
     os.makedirs(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}'), exist_ok=True)
     os.makedirs(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg'), exist_ok=True)
     
@@ -31,29 +33,19 @@ def preprocess_meg(subject_id, input_dir, task, drug, DERIVATIVES_DIR, power_lin
     # Step 3: ICA works best on the data without bad epochs. https://autoreject.github.io/stable/auto_examples/plot_autoreject_workflow.html
     # Thus, first apply AutoReject to remove bad epochs
     events = mne.make_fixed_length_events(raw, duration=2, overlap=0)
-    epochs = mne.Epochs(raw, events, event_id=1, tmin=0, tmax=1.999, baseline=None, preload=True, picks='meg')
-    
-    # step 3.1: Fetch from fif_data_BIDS, where it's manually annotated, the bad epochs
-    #######Rremoved for RestC.. first run
-    # manually_annotated_good_epochs = np.load(f'/users/local/Venkatesh/LSD_project/src_data/fif_data_BIDS_epochs/{task}/{drug}/sub-{subject_id}/meg/sub-{subject_id}_good_epochs_upon_visual_inspection_of_raw_filtered_epochs.npz')['arr_0']
-    # epochs = epochs[manually_annotated_good_epochs]
-    # epochs.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_epochs_meg.fif'), overwrite=True)
-    
-    ar = AutoReject(picks="mag",n_jobs=-1, random_state=99, n_interpolate=[1, 4, 8, 16, 32])
-    ar.fit(epochs)
-    
-    reject_log = ar.get_reject_log(epochs, picks='mag')
-    report.add_figure(reject_log.plot('horizontal'), title=f'Subject {subject_id} - Autoreject Log')
-    report.add_epochs(epochs, title=f'Subject {subject_id} - Autoreject Applied for Epochs')
-    # epochs.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_AR_PreICA_ft_epochs_meg.fif'), overwrite=True)
-    
-    output_file_reject_log = os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_reject_log_AR_pre_meg.fif')
-    reject_log.save(output_file_reject_log, overwrite=True)
 
+    
+    epochs = mne.Epochs(raw, events, event_id=1, tmin=0, tmax=1.999, baseline=None, preload=True, picks='mag')
+    reject_threshold= get_rejection_threshold(epochs, decim=2, verbose=False)
+   
+    epochs = mne.Epochs(raw, events, event_id=1, tmin=0, tmax=1.999, baseline=None, preload=True, reject=reject_threshold, picks='mag')
+    report.add_epochs(epochs, title=f'Subject {subject_id} - Epochs, with rejection threshold: {reject_threshold}')
+
+    
     # Step 3:ICA 
     # Second, apply ICA to remove artifacts
     ica = ICA(n_components=20, random_state=97, method="picard")
-    ica.fit(epochs[~reject_log.bad_epochs], picks="mag")
+    ica.fit(epochs, picks="mag")
     ica.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_ica_meg.fif'), overwrite=True)
     
     # step 3.1 ECG / EOG artifact removal
@@ -72,28 +64,19 @@ def preprocess_meg(subject_id, input_dir, task, drug, DERIVATIVES_DIR, power_lin
     eog_components = eog_indices
     to_exclude = list(set(ecg_components + eog_components))
     ica.exclude = to_exclude
-    epochs_ar_clean_ICA = ica.apply(epochs, exclude=to_exclude)
+    epochs_clean_ICA = ica.apply(epochs, exclude=to_exclude)
     
     report.add_ica(ica, inst=None, title=f'Subject {subject_id} - ICA Applied for Epochs',  n_jobs=-1)
-    report.add_epochs(epochs_ar_clean_ICA, title=f'Subject {subject_id} - ICA Applied for Epochs')
+    report.add_epochs(epochs_clean_ICA, title=f'Subject {subject_id} - ICA Applied for Epochs')
     
-    # Step 4: Apply AutoReject to remove bad epochs post-ICA
-    ar = AutoReject(picks="mag",n_jobs=-1, random_state=99, n_interpolate=[1, 4, 8, 16, 32])
-    ar.fit(epochs_ar_clean_ICA)
-    epochs_ar_clean_ICA_ar, reject_log_post_ICA = ar.transform(epochs_ar_clean_ICA, return_log=True)
-    report.add_figure(reject_log_post_ICA.plot('horizontal'), title=f'Subject {subject_id} - Autoreject Log post_ICA')
 
     # # Save the cleaned data (Epochs) to a new FIF file
     output_file = os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_cleaned_epochs_meg.fif')
-    epochs_ar_clean_ICA_ar.save(output_file, overwrite=True)
+    epochs_clean_ICA.save(output_file, overwrite=True)
 
-    report.add_epochs(epochs_ar_clean_ICA_ar, title=f'Subject {subject_id} - Cleaned Epochs', psd=True)
 
     report.save(os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', f'sub-{subject_id}_report.html'), overwrite=True)
     report.save(os.path.join(f"/users/local/Venkatesh/LSD_project/Preprocessing_Reports/{task}/{drug}", f'sub-{subject_id}_report.html'), overwrite=True)
-
-    output_file_reject_log = os.path.join(DERIVATIVES_DIR, f'sub-{subject_id}', 'meg', f'sub-{subject_id}_reject_log_AR_post_meg.fif')
-    reject_log_post_ICA.save(output_file_reject_log, overwrite=True)
 
 def main():
     
@@ -237,7 +220,7 @@ def main():
     drug = args.drug
     
 
-    Parallel(n_jobs=-1)(delayed(preprocess_meg)(subject_id, BIDS_DIR, task, drug, DERIVATIVES_DIR) for subject_id in args.subjects)
+    Parallel(n_jobs=5)(delayed(preprocess_meg)(subject_id, BIDS_DIR, task, drug, DERIVATIVES_DIR) for subject_id in args.subjects)
 
     # Save the combined report
     # output_html = os.path.join(DERIVATIVES_DIR, 'meg_preprocessing_report.html')
