@@ -10,7 +10,7 @@ from statsmodels.stats.multitest import fdrcorrection
 # Define subjects and conditions
 subjects = ['003', '005', '006', '009', '010', '013', '015', '016', '017', '018']
 conditions = ['LSD', 'PLA']
-base_path = '/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Music'
+base_path = '/Brain/private/v20subra/LSD_project/src_data/derivatives/func/Music'
 #%%
 # Define canonical frequency bands
 freq_bands = {
@@ -255,7 +255,7 @@ from nilearn import plotting
 from nilearn.regions import signals_to_img_labels
 from nilearn.datasets import fetch_icbm152_2009
 
-path_Glasser = '/users/local/Venkatesh/LSD_project/src_data/Glasser_masker.nii.gz'
+path_Glasser = '/Brain/private/v20subra//LSD_project/src_data/Glasser_masker.nii.gz'
 mnitemp = fetch_icbm152_2009()
 
 for band in list(freq_bands.keys()):
@@ -272,7 +272,7 @@ for band in list(freq_bands.keys()):
 # Define subjects and conditions
 subjects = ['005']
 conditions = ['LSD', 'PLA']
-base_path = '/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Video'
+base_path = '/Brain/private/v20subra//LSD_project/src_data/derivatives/func/Video'
 
 # Define canonical frequency bands
 freq_bands = {
@@ -426,7 +426,7 @@ freq_bands = {
 whole_psd_source = {}
 subjects = [ '006']
 conditions = ['LSD', 'PLA']
-base_path = '/users/local/Venkatesh/LSD_project/src_data/derivatives/func/Video'
+base_path = '/Brain/private/v20subra//LSD_project/src_data/derivatives/func/Video'
 
 for condition in conditions:
     psd_subjects = []
@@ -455,5 +455,44 @@ source_epochs.compute_psd(fmin=1, fmax=60).get_data().shape
 cluster
 # %%
 from statsmodels.stats.multitest import fdrcorrection
+
+# %%
+import os
+import shutil
+
+def fetch_and_organize_reports(base_dir, destination_root):
+    """
+    Fetch report files from the given directory structure and copy them under `Reports/v{}`.
+    Keeps subfolder structure (e.g., LSD, Placebo) intact.
+    
+    :param base_dir: Root directory to search for reports
+    :param destination_root: Root directory for the organized reports
+    :param version: Version number to append to Reports folder
+    """
+    destination_folder = os.path.join(destination_root)
+    
+    for root, dirs, files in os.walk(base_dir):
+        for file in files:
+            if file.endswith("_report.html"):  # Adjust if report naming convention changes
+                # Preserve the folder structure inside Reports/v{version}
+                relative_path = os.path.relpath(root, base_dir)
+                subfolder_path = os.path.join(destination_folder, relative_path)
+                
+                # Ensure the subfolder exists
+                os.makedirs(subfolder_path, exist_ok=True)
+                
+                # Copy the report file
+                src_file_path = os.path.join(root, file)
+                dst_file_path = os.path.join(subfolder_path, file)
+                
+                shutil.copy2(src_file_path, dst_file_path)
+                print(f"Copied: {src_file_path} -> {dst_file_path}")
+
+if __name__ == "__main__":
+    # Specify the base directory and destination root
+    base_directory = "/Brain/private/v20subra//LSD_project/src_data/derivatives_pipelines"  # Replace with the actual path
+    destination_root = "/Brain/private/v20subra//LSD_project/src_data/Reports"  # Replace with the actual destination path
+
+    fetch_and_organize_reports(base_directory, destination_root)
 
 # %%

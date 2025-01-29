@@ -12,7 +12,7 @@ from joblib import Parallel, delayed
 import os
 import logging
 import numpy as np
-HOMEDIR = "/users/local/Venkatesh/LSD_project"
+HOMEDIR = "/Brain/private/v20subra/LSD_project"
 def create_source_space(subjects_dir, subject, drug):
     """Create the source space."""
     
@@ -26,7 +26,7 @@ def create_source_space(subjects_dir, subject, drug):
     #     return src
     
     # else:
-    # print(f"Creating source space for subject {subject}...")
+    print(f"Creating source space for subject {subject}...")
     src = mne.setup_source_space(subject, spacing='ico5', subjects_dir=subjects_dir, n_jobs=-1)
     print(f"Source space setup complete for subject {subject}.")
     src_file = f"{subjects_dir}/{subject}/bem/{subject}-ico5-src.fif"
