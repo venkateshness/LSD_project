@@ -6,11 +6,11 @@ import pandas as pd
 from mne_bids import BIDSPath, write_raw_bids
 import numpy as np
 
-HOMEDIR = '/users/local/Venkatesh/LSD_project/'
+HOMEDIR = '/Brain/private/v20subra/LSD_project/'
 
 #%%
 drug_condition = ['LSD', 'PLA']
-task_condition = ['RestO', 'RestC'] #, 'Music'
+task_condition = ['Music'] #, 'Music'
 
 ID_order = []
 

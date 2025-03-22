@@ -49,9 +49,9 @@ def surrogate_eigenmodes(eigvector, signal, n_surrogate):  # updated
         )
         random_signs[random_signs == 0] = -1
         random_signs = np.diag(random_signs)
-
+        
         g_psd = np.matmul(eigvector.T, signal)
-        eigvector_manip = np.matmul(eigvector, random_signs)
+        eigvector_manip = np.matmul(random_signs, eigvector)
         reconstructed_signal = np.matmul(eigvector_manip, g_psd)
         surrogate_signal.append(reconstructed_signal)
 
@@ -67,7 +67,7 @@ def surrogate_eigenmodes(eigvector, signal, n_surrogate):  # updated
 def compute_gpsd(signal,eigenvecs):
 
     gft = np.matmul(eigenvecs.T, signal)
-    psd_abs_squared = np.sqrt(np.power(np.abs(gft), 2))
+    psd_abs_squared = np.power(np.abs(gft), 2)
     gpsd_averaged = np.mean(psd_abs_squared, axis=1)
     
 
@@ -86,16 +86,31 @@ def split_gpsd(gpsd,eigenvals):
     critical_freq = i - 1
     return critical_freq
         
-subjects = 1
+def fullpipeline_integrative_segregative(envelope, eigevecs):
+    signal_for_gft = envelope
+    
+    psd = np.matmul(np.array(eigevecs).T, signal_for_gft)
+    
+    integrative = np.zeros((regions, regions))
+    integrative[:, :164] = np.array(eigevecs)[:, :164]
+    
+    segregative = np.zeros((regions, regions))
+    segregative[:, 211:] = np.array(eigevecs)[:, 211:]
+    
+    integrative_component = np.matmul(integrative, psd)
+    segregative_component = np.matmul(segregative, psd)
+    
+    return np.linalg.norm(integrative_component, axis=(0,2)), np.linalg.norm(segregative_component, axis=(0,2))
+    
 
 
-def fullpipeline(envelope, eigevecs, eigvals, is_surrogate=False, in_seconds=False):
+def fullpipeline_sdi(envelope, eigevecs, eigvals, is_surrogate=False, in_seconds=False):
     signal_for_gft = envelope
 
     
     psd = np.matmul(np.array(eigevecs).T, signal_for_gft)
 
-    psd_power_avg, psd_power = compute_gpsd(signal_for_gft, eigevecs)
+    psd_power_avg, _ = compute_gpsd(signal_for_gft, eigevecs)
     critical_freq = split_gpsd(psd_power_avg, eigvals)
     low_freq =  np.zeros((regions, regions))
     low_freq[:,:critical_freq] = np.array(eigevecs)[ :, :critical_freq]
@@ -119,40 +134,3 @@ def fullpipeline(envelope, eigevecs, eigvals, is_surrogate=False, in_seconds=Fal
         elif in_seconds:
             return low_freq_component, high_freq_component
 
-
-
-
-
-def surrogate_eigenmodes_uninformed(eigvector, signal, n_surrogate):  # updated
-    """Surrogate data generation
-    Args:
-        eigvector (array): Eigenvector
-        signal (array): Cortical brain/graph signal
-    Returns:
-        surrogate_signal (array): Surrogate signal"""
-    
-    surrogate_signal = list()
-    for n in range(n_surrogate):
-
-        np.random.seed(n)
-        random_signs = np.round(
-            np.random.rand(
-                regions,
-            )
-        )
-        random_signs[random_signs == 0] = -1
-        random_signs = np.diag(random_signs)
-
-
-        g_psd = np.matmul(eigvector.T, signal)
-        eigvector = np.fliplr(eigvector)
-        eigvector_manip = np.matmul(eigvector, random_signs)
-        reconstructed_signal = np.matmul(eigvector_manip, g_psd)
-        surrogate_signal.append(reconstructed_signal)
-
-    assert np.shape(surrogate_signal) == (
-        n_surrogate,
-        regions,
-    )
-
-    return surrogate_signal
